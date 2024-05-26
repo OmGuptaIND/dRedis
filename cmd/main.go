@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/OmGuptaIND/p2p"
 )
@@ -41,9 +43,17 @@ func main() {
 		}
 	}()
 
-	if err := server2.Start(); err != nil {
-		log.Println("Error starting server2", err)
-	}
+	time.Sleep(5 * time.Second)
 
+	go func() {
+		if err := server2.Start(); err != nil {
+			log.Println("Error starting server1", err)
+		}
+	}()
+
+	time.Sleep(5 * time.Second)
+
+	data := bytes.NewReader([]byte("Hello World"))
+	server2.StoreFile("privateKey", data)
 	select {}
 }

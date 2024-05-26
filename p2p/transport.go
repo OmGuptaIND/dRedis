@@ -4,8 +4,8 @@ import "net"
 
 // Peer is defined as the Remote Person that we want to communicate with
 type Peer interface {
-	RemoteAddr() net.Addr
-	Close() error
+	net.Conn
+	Send([]byte) error
 }
 
 // Transport is the interface that wraps the basic methods for a transport.

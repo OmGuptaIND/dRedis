@@ -1,7 +1,9 @@
 package main
 
 import (
-	"fmt"
+	"bytes"
+	"encoding/gob"
+	"io"
 	"log"
 	"sync"
 	"time"
@@ -41,10 +43,48 @@ func (f *FileServer) Start() error {
 	}
 
 	go f.bootStrapNodesNetwork()
-
-	f.handleQuitSignal()
+	go f.handleQuitSignal()
 
 	return nil
+}
+
+type Payload struct {
+	Key  string
+	Data []byte
+}
+
+// broadCast sends the payload to all the peers
+func (f *FileServer) broadCast(payload *Payload) error {
+	peers := []io.Writer{}
+	for _, peer := range f.peers {
+		peers = append(peers, peer)
+	}
+	mw := io.MultiWriter(peers...)
+	return gob.NewEncoder(mw).Encode(payload)
+}
+
+func (f *FileServer) StoreFile(key string, r io.Reader) error {
+
+	buf := new(bytes.Buffer)
+
+	tee := io.TeeReader(r, buf)
+
+	if err := f.Store.Write(key, tee); err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(buf, r); err != nil {
+		return err
+	}
+
+	log.Println("Storing file", buf.Bytes())
+
+	payload := &Payload{
+		Key:  key,
+		Data: buf.Bytes(),
+	}
+
+	return f.broadCast(payload)
 }
 
 // OnPeer is called when a new peer is connected
@@ -89,10 +129,16 @@ func (f *FileServer) handleQuitSignal() {
 	for {
 		select {
 		case msg := <-f.Transport.Consume():
-			fmt.Println("Received message", msg)
+			var payload Payload
+
+			if err := gob.NewDecoder(bytes.NewReader(msg.Payload)).Decode(&payload); err != nil {
+				log.Println("Error decoding payload", err)
+			}
+
+			log.Println("Received payload", payload)
+
 		case <-f.quitCh:
 			return
 		}
-
 	}
 }
