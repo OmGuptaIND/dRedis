@@ -26,6 +26,8 @@ func makeServer(addr string, nodes ...string) *FileServer {
 		bootStrapNodes: nodes,
 	})
 
+	tcpTransport.OnPeer = fileServer.OnPeer
+
 	return fileServer
 }
 

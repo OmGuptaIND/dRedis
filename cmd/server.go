@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/OmGuptaIND/p2p"
@@ -17,6 +18,9 @@ type FileServerOpts struct {
 type FileServer struct {
 	FileServerOpts
 
+	peerLock sync.RWMutex
+	peers    map[string]p2p.Peer
+
 	quitCh chan struct{}
 }
 
@@ -25,6 +29,8 @@ func NewFileServer(opts FileServerOpts) *FileServer {
 	return &FileServer{
 		FileServerOpts: opts,
 		quitCh:         make(chan struct{}),
+		peerLock:       sync.RWMutex{},
+		peers:          make(map[string]p2p.Peer),
 	}
 }
 
@@ -37,6 +43,16 @@ func (f *FileServer) Start() error {
 	go f.bootStrapNodesNetwork()
 
 	f.handleQuitSignal()
+
+	return nil
+}
+
+// OnPeer is called when a new peer is connected
+func (f *FileServer) OnPeer(peer p2p.Peer) error {
+	f.peerLock.Lock()
+	defer f.peerLock.Unlock()
+
+	f.peers[peer.RemoteAddr().String()] = peer
 
 	return nil
 }
